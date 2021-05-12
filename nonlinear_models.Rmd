@@ -1,0 +1,210 @@
+---
+title: "Modelos Lineares Generalizados & Modelos Não-Lineares Mistos"
+author: "Mentoria R"
+output: html_notebook
+highlight: tango
+---
+
+<hr>
+
+```{r echo = FALSE}
+knitr::opts_chunk$set(include = T, echo =T, message=F, warning=F)
+```
+
+
+#### Modelo não lineares mistos
+
+##### Importando Dados
+
+```{r}
+setwd("~/Insync/leonardogloria@uenf.br/Google Drive/MENTORIA_R/LPC/LPC/Dados")
+dadosg <- read.table("dadosp.txt", h = T,na.strings=".") %>% 
+  mutate(age=idade,w=peso,animf=factor(animal),classe=factor(sexo)) %>% 
+  groupedData(w~age|animf,data=.)
+
+```
+
+##### Análise o modelo logistico populacional, sem efeito fixo
+```{r}
+teta=c();   AIcc=c();
+
+model03=nlme(w~a/(1+b*(exp(-k*age))),fixed=list(a+b+k~1),random=pdDiag(a~1),
+             control=nlmeControl(minScale=10**-100,maxIter=100),
+             data=dadosg,
+             start=list(fixed =c(30.4443882,12.7867281,0.06)),na.action=na.omit)       #logistico
+
+(teta[3]=attributes(logLik(model03))$df)
+(AIcc[3]=-2*model03$logLik+2*teta[3]+(2*teta[3]*(teta[3]+1))/(nrow(dadosg)-teta[3]-1))
+```
+
+#####  Análise o modelo logistico com efeito fixo
+```{r}
+st09=c(rep(summary(model03)$ coefficients$fixed[[1]],length(levels(dadosg$classe))),rep(summary(model03)$ coefficients$fixed[[2]],length(levels(dadosg$classe))),rep(summary(model03)$ coefficients$fixed[[3]],length(levels(dadosg$classe))))
+
+model09=nlme(w~a/(1+b*(exp(-k*age))),fixed=list(a+b+k~classe-1),
+             random=pdDiag(a+b+k~1),control=nlmeControl(minScale=10**-100,maxIter=500),
+             data=dadosg,start=st09,na.action=na.omit)       #logistico
+
+
+(teta[9]=attributes(logLik(model09))$df)
+(AIcc[9]=-2*model09$logLik+2*teta[9]+(2*teta[9]*(teta[9]+1))/(nrow(dadosg)-teta[9]-1))
+```
+
+#####  Análise o modelo logistico com efeito fixo com modelagem da variância entre os animais
+
+```{r}
+parf=c()
+for (i in 1:length(summary(model09)$ coefficients$fixed))      {
+par1=summary(model09)$ coefficients$fixed[[i]]
+parf=rbind(parf,par1)
+ }
+
+model15=nlme(w~a/(1+b*(exp(-k*age))),fixed=list(a+b+k~classe-1),
+             random=pdDiag(a+b+k~1),control=nlmeControl(minScale=10**-100,maxIter=500),
+             data=dadosg,start=parf,na.action=na.omit,weights= varPower())       #logistico
+
+######################
+
+(teta[15]=attributes(logLik(model15))$df)
+(AIcc[15]=-2*model15$logLik+2*teta[15]+(2*teta[15]*(teta[15]+1))/(nrow(dadosg)-teta[15]-1))
+```
+
+#####  Análise o modelo logistico com efeito fixo com modelagem da varíancia intra animal
+```{r}
+parf=c()
+for (i in 1:length(summary(model09)$ coefficients$fixed))      {
+par1=summary(model09)$ coefficients$fixed[[i]]
+parf=rbind(parf,par1)
+ }
+
+model21=nlme(w~a/(1+b*(exp(-k*age))),fixed=list(a+b+k~classe-1),
+             random=pdDiag(a+b+k~1),control=nlmeControl(minScale=10**-100,maxIter=500),
+             data=dadosg,start=parf,na.action=na.omit,corr=corCAR1())       #logistico
+######################
+
+(teta[21]=attributes(logLik(model21))$df)
+(AIcc[21]=-2*model21$logLik+2*teta[21]+(2*teta[21]*(teta[21]+1))/(nrow(dadosg)-teta[21]-1))
+```
+
+#####  Análise o modelo logistico com efeito fixo com modelagem da varíancia intra animal e entre animais
+```{r}
+parf=c()
+for (i in 1:length(summary(model21)$ coefficients$fixed))      {
+par1=summary(model21)$ coefficients$fixed[[i]]
+parf=rbind(parf,par1)
+ }
+
+model25=nlme(w~a/(1+b*(exp(-k*age))),fixed=list(a+b+k~classe-1),
+             random=pdDiag(a~1),control=nlmeControl(minScale=10**-100,maxIter=500),
+             data=dadosg,start=parf,na.action=na.omit,corr=corCAR1(),weights= varPower())       #logistico
+######################
+
+(teta[25]=attributes(logLik(model25))$df)
+(AIcc[25]=-2*model25$logLik+2*teta[25]+(2*teta[25]*(teta[25]+1))/(nrow(dadosg)-teta[25]-1))
+```
+
+
+##### construindo a tabela AKAIKE para comparação entre modelos
+```{r}
+teta=na.exclude(teta)
+AIcc=na.exclude(AIcc)
+
+
+delta=c()
+for(i in 1: length(AIcc)){
+delta[i]=AIcc[i]-min(AIcc)
+}
+
+wpro=c()
+for(i in 1:length(AIcc)){
+wpro[i]=exp(-delta[i]/2)
+}
+sum(wpro[1:length(AIcc)])
+
+wprob=c()
+for(i in 1: length(AIcc)){
+wprob[i]=exp(-delta[i]/2)/sum(wpro[1:length(AIcc)])
+}
+
+
+ER=c()
+for(i in 1: length(AIcc)){
+ER[i]=max(wprob)/wprob[i]
+}
+
+(quadro.akaike=data.frame(teta,AICc=AIcc,delta,wprob,ER))
+```
+
+
+##### Extraindo os intervalos de confiança dos parametros após escolha do melhor modelo
+```{r}
+intervals(model25)
+```
+
+##### Função para predição
+```{r}
+Logistichat=function(a,b,k,age){
+  y=a/(1+b*(exp(-k*age)))
+  return(y)
+}
+GRLogistic=function(a,b,k,age){
+  y=a * (b * (exp(-k * age) * k))/(1 + b * exp(-k * age))^2
+  return(y)
+}
+```
+
+
+##### Plotando modelos não lineares
+```{r}
+setwd("~/Insync/leonardogloria@uenf.br/Google Drive/MENTORIA_R/LPC/LPC/Dados")
+param=read.table("parametros_curva.txt",h=T)
+row.names(param)=c("Males","Females")
+
+time=seq(1,90,by=0.25)
+#predictions
+predc1=Logistichat(a=param[1,1],b=param[1,2],k=param[1,3],age =time)
+predc2=Logistichat(a=param[2,1],b=param[2,2],k=param[2,3],age =time)
+
+#growth rate
+grc1=GRLogistic(a=param[1,1],b=param[1,2],k=param[1,3],age =time)
+grc2=GRLogistic(a=param[2,1],b=param[2,2],k=param[2,3],age =time)
+
+#inflaction point (max efficiency)
+maxef1=data.frame(grc1)
+rownames(maxef1)=time
+
+maxefx1=as.numeric(rownames(maxef1)[which.max(maxef1$grc1)])
+maxefy1=maxef1$grc1[which.max(maxef1$grc1)]
+
+maxef2=data.frame(grc2)
+rownames(maxef2)=time
+
+maxefx2=as.numeric(rownames(maxef2)[which.max(maxef2$grc2)])
+maxefy2=maxef2$grc2[which.max(maxef2$grc2)]
+
+### Multiple Y Axes
+
+ay <- list(
+  tickfont = list(color = "black"),
+  overlaying = "y",
+  side = "right",
+  title = "Daily Weight Gain(g)"
+)
+fig <- plot_ly()
+fig <- fig %>% add_lines(x = time, y = predc1, name = "Weight Males")
+fig <- fig %>% add_lines(x = time, y = grc1, name = "Growth Rate Males", yaxis = "y2")
+fig <- fig %>% add_markers(x = maxefx1, y = maxefy1, name = "Max Growth Rate Males", yaxis = "y2")
+fig <- fig %>% add_segments(line=list(type="dash"),x = maxefx1,xend=maxefx1, y = 0,yend =maxefy1, yaxis = "y2",name = "Max Growth Rate Males")
+
+fig <- fig %>% add_lines(x = time, y = predc2, name = "Weight Females")
+fig <- fig %>% add_lines(x = time, y = grc2, name = "Growth Rate Females", yaxis = "y2")
+fig <- fig %>% add_markers(x = maxefx2, y = maxefy2, name = "Max Growth Rate Females", yaxis = "y2")
+fig <- fig %>% add_segments(color = I("gray"),x = maxefx2,xend=maxefx2, y = 0,yend =maxefy2, yaxis = "y2",name = "Max Growth Rate Females")
+
+fig <- fig %>% layout(
+  title = "Growth Curve with Growth rate", yaxis2 = ay,
+  xaxis = list(title="Age(days)"),
+  yaxis = list(title="Weight(g)")
+)
+fig
+```
