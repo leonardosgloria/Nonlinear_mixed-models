@@ -1,6 +1,6 @@
 ---
-title: "Modelos Lineares Generalizados & Modelos Não-Lineares Mistos"
-author: "Mentoria R"
+title: "Non-Linear Mixed Models"
+author: "Brito's Lab"
 output: html_notebook
 highlight: tango
 ---
@@ -11,104 +11,186 @@ highlight: tango
 knitr::opts_chunk$set(include = T, echo =T, message=F, warning=F)
 ```
 
-
-#### Modelo não lineares mistos
-
-##### Importando Dados
+#### Packages
 
 ```{r}
-setwd("~/Insync/leonardogloria@uenf.br/Google Drive/MENTORIA_R/LPC/LPC/Dados")
-dadosg <- read.table("dadosp.txt", h = T,na.strings=".") %>% 
-  mutate(age=idade,w=peso,animf=factor(animal),classe=factor(sexo)) %>% 
-  groupedData(w~age|animf,data=.)
+library(tidyverse)
+library(nlme)
+library(plotly)
+```
+
+##### Importing Dataset
+
+```{r}
+setwd("~/Insync/leonardogloria@uenf.br/Google Drive/MENTORIA_R/Monday_meeting")
+dadosg <- read.table("data_growth.txt", h = T,na.strings=".") %>% 
+  mutate(age=idade,w=peso,animf=factor(animal),class=factor(sexo)) %>% 
+  groupedData(w~age|animf,data=.) #Creating dataset indicating animal repeated measures by age
 
 ```
 
-##### Análise o modelo logistico populacional, sem efeito fixo
+##### Logistic model, without fixed effect
 ```{r}
 teta=c();   AIcc=c();
 
-model03=nlme(w~a/(1+b*(exp(-k*age))),fixed=list(a+b+k~1),random=pdDiag(a~1),
-             control=nlmeControl(minScale=10**-100,maxIter=100),
+model00=nlme(w~a/(1+b*(exp(-k*age))),fixed=list(a+b+k~1),random=pdDiag(a~1),
+             control=nlmeControl(maxIter=100),
              data=dadosg,
-             start=list(fixed =c(30.4443882,12.7867281,0.06)),na.action=na.omit)       #logistico
+             start=list(fixed =c(30.4443882,12.7867281,0.06)),na.action=na.omit)       
 
-(teta[3]=attributes(logLik(model03))$df)
-(AIcc[3]=-2*model03$logLik+2*teta[3]+(2*teta[3]*(teta[3]+1))/(nrow(dadosg)-teta[3]-1))
+(teta[1]=attributes(logLik(model00))$df)
+(AIcc[1]=-2*model00$logLik+2*teta[1]+(2*teta[1]*(teta[1]+1))/(nrow(dadosg)-teta[1]-1))
 ```
 
-#####  Análise o modelo logistico com efeito fixo
+#####  Logistic model with class of fixed effect, in other words, we will fit a parameter for each sex
 ```{r}
-st09=c(rep(summary(model03)$ coefficients$fixed[[1]],length(levels(dadosg$classe))),rep(summary(model03)$ coefficients$fixed[[2]],length(levels(dadosg$classe))),rep(summary(model03)$ coefficients$fixed[[3]],length(levels(dadosg$classe))))
+st01=c(rep(summary(model00)$ coefficients$fixed[[1]],length(levels(dadosg$class))),rep(summary(model00)$ coefficients$fixed[[2]],length(levels(dadosg$class))),rep(summary(model00)$ coefficients$fixed[[3]],length(levels(dadosg$class)))) #starting values based on the model00 output
 
-model09=nlme(w~a/(1+b*(exp(-k*age))),fixed=list(a+b+k~classe-1),
-             random=pdDiag(a+b+k~1),control=nlmeControl(minScale=10**-100,maxIter=500),
-             data=dadosg,start=st09,na.action=na.omit)       #logistico
+model01=nlme(w~a/(1+b*(exp(-k*age))),fixed=list(a+b+k~class-1),
+             random=pdDiag(a+b+k~1),control=nlmeControl(maxIter=500),
+             data=dadosg,start=st01,na.action=na.omit)
 
 
-(teta[9]=attributes(logLik(model09))$df)
-(AIcc[9]=-2*model09$logLik+2*teta[9]+(2*teta[9]*(teta[9]+1))/(nrow(dadosg)-teta[9]-1))
+(teta[2]=attributes(logLik(model01))$df)
+(AIcc[2]=-2*model01$logLik+2*teta[2]+(2*teta[2]*(teta[2]+1))/(nrow(dadosg)-teta[2]-1))
 ```
 
-#####  Análise o modelo logistico com efeito fixo com modelagem da variância entre os animais
+#####  Logistic model with class of fixed effect, in other words, we will fit a parameter for each sex, plus (weights = heterogeneous variance along the time, varPower= power variance function is defined as s2(v) = |v|^(2*t))
 
 ```{r}
 parf=c()
-for (i in 1:length(summary(model09)$ coefficients$fixed))      {
-par1=summary(model09)$ coefficients$fixed[[i]]
+for (i in 1:length(summary(model01)$ coefficients$fixed))      {
+par1=summary(model01)$ coefficients$fixed[[i]]
 parf=rbind(parf,par1)
- }
+ } #starting values based on the model01 output, each class has its own start value
 
-model15=nlme(w~a/(1+b*(exp(-k*age))),fixed=list(a+b+k~classe-1),
-             random=pdDiag(a+b+k~1),control=nlmeControl(minScale=10**-100,maxIter=500),
-             data=dadosg,start=parf,na.action=na.omit,weights= varPower())       #logistico
+model02=nlme(w~a/(1+b*(exp(-k*age))),fixed=list(a+b+k~class-1),
+             random=pdDiag(a+b+k~1),control=nlmeControl(maxIter=500),
+             data=dadosg,start=parf,na.action=na.omit,weights= varPower())       
 
+intervals(model02)
 ######################
 
-(teta[15]=attributes(logLik(model15))$df)
-(AIcc[15]=-2*model15$logLik+2*teta[15]+(2*teta[15]*(teta[15]+1))/(nrow(dadosg)-teta[15]-1))
+(teta[3]=attributes(logLik(model02))$df)
+(AIcc[3]=-2*model02$logLik+2*teta[3]+(2*teta[3]*(teta[3]+1))/(nrow(dadosg)-teta[3]-1))
 ```
 
-#####  Análise o modelo logistico com efeito fixo com modelagem da varíancia intra animal
+#####  Logistic model with class of fixed effect, in other words, we will fit a parameter for each sex, plus (corr = modeling animal repeated measures, CAR1 = continous autoregressive)
 ```{r}
 parf=c()
-for (i in 1:length(summary(model09)$ coefficients$fixed))      {
-par1=summary(model09)$ coefficients$fixed[[i]]
+for (i in 1:length(summary(model01)$ coefficients$fixed))      {
+par1=summary(model01)$ coefficients$fixed[[i]]
 parf=rbind(parf,par1)
- }
+ } #starting values based on the model01 output, each class has its own start value
 
-model21=nlme(w~a/(1+b*(exp(-k*age))),fixed=list(a+b+k~classe-1),
-             random=pdDiag(a+b+k~1),control=nlmeControl(minScale=10**-100,maxIter=500),
-             data=dadosg,start=parf,na.action=na.omit,corr=corCAR1())       #logistico
+model03=nlme(w~a/(1+b*(exp(-k*age))),fixed=list(a+b+k~class-1),
+             random=pdDiag(a+b+k~1),control=nlmeControl(maxIter=100),
+             data=dadosg,start=parf,na.action=na.omit,corr=corCAR1())
 ######################
 
-(teta[21]=attributes(logLik(model21))$df)
-(AIcc[21]=-2*model21$logLik+2*teta[21]+(2*teta[21]*(teta[21]+1))/(nrow(dadosg)-teta[21]-1))
+(teta[4]=attributes(logLik(model03))$df)
+(AIcc[4]=-2*model03$logLik+2*teta[4]+(2*teta[4]*(teta[4]+1))/(nrow(dadosg)-teta[4]-1))
 ```
 
-#####  Análise o modelo logistico com efeito fixo com modelagem da varíancia intra animal e entre animais
+##### Full Logistic model with class of fixed effect, heterogeneous variance along the time, repeated measures
 ```{r}
 parf=c()
-for (i in 1:length(summary(model21)$ coefficients$fixed))      {
-par1=summary(model21)$ coefficients$fixed[[i]]
+for (i in 1:length(summary(model03)$ coefficients$fixed))      {
+par1=summary(model03)$ coefficients$fixed[[i]]
 parf=rbind(parf,par1)
  }
 
-model25=nlme(w~a/(1+b*(exp(-k*age))),fixed=list(a+b+k~classe-1),
+model04=nlme(w~a/(1+b*(exp(-k*age))),fixed=list(a+b+k~class-1),
              random=pdDiag(a~1),control=nlmeControl(minScale=10**-100,maxIter=500),
              data=dadosg,start=parf,na.action=na.omit,corr=corCAR1(),weights= varPower())       #logistico
 ######################
 
-(teta[25]=attributes(logLik(model25))$df)
-(AIcc[25]=-2*model25$logLik+2*teta[25]+(2*teta[25]*(teta[25]+1))/(nrow(dadosg)-teta[25]-1))
+(teta[5]=attributes(logLik(model04))$df)
+(AIcc[5]=-2*model04$logLik+2*teta[5]+(2*teta[5]*(teta[5]+1))/(nrow(dadosg)-teta[5]-1))
 ```
 
-
-##### construindo a tabela AKAIKE para comparação entre modelos
+##### Gompertz model, without fixed effect
 ```{r}
-teta=na.exclude(teta)
-AIcc=na.exclude(AIcc)
+teta=c();   AIcc=c();
 
+model05=nlme(w~a*exp(-b*(exp(-k*age))),fixed=list(a+b+k~1),random=pdDiag(a~1),
+             control=nlmeControl(maxIter=100),
+             data=dadosg,
+             start=list(fixed =c(30.4443882,12.7867281,0.06)),na.action=na.omit)       
+
+(teta[6]=attributes(logLik(model05))$df)
+(AIcc[6]=-2*model05$logLik+2*teta[6]+(2*teta[6]*(teta[6]+1))/(nrow(dadosg)-teta[6]-1))
+```
+
+#####  Gompertz model with class of fixed effect, in other words, we will fit a parameter for each sex
+```{r}
+st05=c(rep(summary(model05)$ coefficients$fixed[[1]],length(levels(dadosg$class))),rep(summary(model05)$ coefficients$fixed[[2]],length(levels(dadosg$class))),rep(summary(model05)$ coefficients$fixed[[3]],length(levels(dadosg$class)))) #starting values based on the model05 output
+
+model06=nlme(w~a*exp(-b*(exp(-k*age))),fixed=list(a+b+k~class-1),
+             random=pdDiag(a+b+k~1),control=nlmeControl(maxIter=100),
+             data=dadosg,start=st01,na.action=na.omit)
+
+
+(teta[7]=attributes(logLik(model06))$df)
+(AIcc[7]=-2*model06$logLik+2*teta[7]+(2*teta[7]*(teta[7]+1))/(nrow(dadosg)-teta[7]-1))
+```
+
+#####  Gompertz model with class of fixed effect, in other words, we will fit a parameter for each sex, plus (weights = heterogeneous variance along the time, varPower= power variance function is defined as s2(v) = |v|^(2*t))
+
+```{r}
+parf=c()
+for (i in 1:length(summary(model06)$ coefficients$fixed))      {
+par1=summary(model06)$ coefficients$fixed[[i]]
+parf=rbind(parf,par1)
+ } #starting values based on the model01 output, each class has its own start value
+
+model07=nlme(w~a*exp(-b*(exp(-k*age))),fixed=list(a+b+k~class-1),
+             random=pdDiag(a+b+k~1),control=nlmeControl(maxIter=100),
+             data=dadosg,start=parf,na.action=na.omit,weights= varPower())       
+
+intervals(model07)
+######################
+
+(teta[8]=attributes(logLik(model07))$df)
+(AIcc[8]=-2*model07$logLik+2*teta[8]+(2*teta[8]*(teta[8]+1))/(nrow(dadosg)-teta[8]-1))
+```
+
+#####  Gompertz model with class of fixed effect, in other words, we will fit a parameter for each sex, plus (corr = modeling animal repeated measures, CAR1 = continous autoregressive)
+```{r}
+parf=c()
+for (i in 1:length(summary(model06)$ coefficients$fixed))      {
+par1=summary(model06)$ coefficients$fixed[[i]]
+parf=rbind(parf,par1)
+ } #starting values based on the model01 output, each class has its own start value
+
+model08=nlme(w~a*exp(-b*(exp(-k*age))),fixed=list(a+b+k~class-1),
+             random=pdDiag(a+b+k~1),control=nlmeControl(maxIter=100),
+             data=dadosg,start=parf,na.action=na.omit,corr=corCAR1())
+######################
+
+(teta[9]=attributes(logLik(model08))$df)
+(AIcc[9]=-2*model08$logLik+2*teta[9]+(2*teta[9]*(teta[9]+1))/(nrow(dadosg)-teta[9]-1))
+```
+
+##### Full Gompertz model with class of fixed effect, heterogeneous variance along the time, repeated measures
+```{r}
+parf=c()
+for (i in 1:length(summary(model06)$ coefficients$fixed))      {
+par1=summary(model06)$ coefficients$fixed[[i]]
+parf=rbind(parf,par1)
+ } #starting values based on the model01 output, each class has its own start value
+
+model09=nlme(w~a*exp(-b*(exp(-k*age))),fixed=list(a+b+k~class-1),
+             random=pdDiag(a+k~1),control=nlmeControl(minScale=10**-100,maxIter=500),
+             data=dadosg,start=parf,na.action=na.omit,corr=corCAR1(),weights= varPower())
+######################
+
+(teta[10]=attributes(logLik(model09))$df)
+(AIcc[10]=-2*model09$logLik+2*teta[10]+(2*teta[10]*(teta[10]+1))/(nrow(dadosg)-teta[10]-1))
+```
+
+##### multi-model selection framework (Burnham and Anderson, 2004)
+```{r}
 
 delta=c()
 for(i in 1: length(AIcc)){
@@ -136,38 +218,38 @@ ER[i]=max(wprob)/wprob[i]
 ```
 
 
-##### Extraindo os intervalos de confiança dos parametros após escolha do melhor modelo
+##### Extracting the confidence intervals of the parameters after choosing the best model
 ```{r}
-intervals(model25)
+intervals(model09)
 ```
 
-##### Função para predição
+##### Prediction and Growth rate function
 ```{r}
-Logistichat=function(a,b,k,age){
-  y=a/(1+b*(exp(-k*age)))
+Gompertzhat=function(a,b,k,age){
+  y=a*exp(-b*(exp(-k*age)))
   return(y)
 }
-GRLogistic=function(a,b,k,age){
-  y=a * (b * (exp(-k * age) * k))/(1 + b * exp(-k * age))^2
+GRGompertz=function(a,b,k,age){
+  y=a * (exp(-b * (exp(-k * age))) * (b * (exp(-k * age) * k)))
   return(y)
 }
 ```
 
 
-##### Plotando modelos não lineares
+##### creating interactive graphics with plotly
 ```{r}
-setwd("~/Insync/leonardogloria@uenf.br/Google Drive/MENTORIA_R/LPC/LPC/Dados")
-param=read.table("parametros_curva.txt",h=T)
+setwd("~/Insync/leonardogloria@uenf.br/Google Drive/MENTORIA_R/Monday_meeting")
+param=read.table("parameters.txt",h=T)
 row.names(param)=c("Males","Females")
 
 time=seq(1,90,by=0.25)
 #predictions
-predc1=Logistichat(a=param[1,1],b=param[1,2],k=param[1,3],age =time)
-predc2=Logistichat(a=param[2,1],b=param[2,2],k=param[2,3],age =time)
+predc1=Gompertzhat(a=param[1,1],b=param[1,2],k=param[1,3],age =time)
+predc2=Gompertzhat(a=param[2,1],b=param[2,2],k=param[2,3],age =time)
 
 #growth rate
-grc1=GRLogistic(a=param[1,1],b=param[1,2],k=param[1,3],age =time)
-grc2=GRLogistic(a=param[2,1],b=param[2,2],k=param[2,3],age =time)
+grc1=GRGompertz(a=param[1,1],b=param[1,2],k=param[1,3],age =time)
+grc2=GRGompertz(a=param[2,1],b=param[2,2],k=param[2,3],age =time)
 
 #inflaction point (max efficiency)
 maxef1=data.frame(grc1)
@@ -205,6 +287,205 @@ fig <- fig %>% layout(
   title = "Growth Curve with Growth rate", yaxis2 = ay,
   xaxis = list(title="Age(days)"),
   yaxis = list(title="Weight(g)")
+)
+fig
+```
+
+
+
+##### Importing Milking Dataset
+
+## Importing dataset from txt
+
+```{r}
+setwd("~/Insync/leonardogloria@uenf.br/Google Drive/MENTORIA_R/Monday_meeting")
+data_milkg <- read.table("data_milk.txt", h = T) %>% 
+  mutate(animal=factor(animal),CG=factor(CG)) %>% 
+  groupedData(MY~DIM|animal,data=.) #Creating dataset indicating animal repeated measures by days in milk
+```
+
+##### WOOD model, without fixed effect
+```{r}
+teta=c();   AIcc=c();
+
+model00=nlme(MY~a*(DIM**b)*exp(-k*DIM),fixed=list(a+b+k~1),random=pdDiag(a+b~1),
+             control=nlmeControl(maxIter=100),
+             data=data_milkg,
+             start=list(fixed =c(20,0.1,0.003)),na.action=na.omit)       
+
+(teta[1]=attributes(logLik(model00))$df)
+(AIcc[1]=-2*model00$logLik+2*teta[1]+(2*teta[1]*(teta[1]+1))/(nrow(data_milkg)-teta[1]-1))
+```
+
+#####  WOOD model with class of fixed effect, in other words, we will fit a parameter for each sex
+```{r}
+st01=c(rep(summary(model00)$ coefficients$fixed[[1]],length(levels(data_milkg$CG))),rep(summary(model00)$ coefficients$fixed[[2]],length(levels(data_milkg$CG))),rep(summary(model00)$ coefficients$fixed[[3]],length(levels(data_milkg$CG)))) #starting values based on the model00 output
+
+model01=nlme(MY~a*(DIM**b)*exp(-k*DIM),fixed=list(a+b+k~CG-1),random=pdDiag(a~1),
+             control=nlmeControl(maxIter=100),
+             data=data_milkg,start=st01,na.action=na.omit)
+
+
+(teta[2]=attributes(logLik(model01))$df)
+(AIcc[2]=-2*model01$logLik+2*teta[2]+(2*teta[2]*(teta[2]+1))/(nrow(data_milkg)-teta[2]-1))
+```
+
+#####  WOOD model with class of fixed effect, in other words, we will fit a parameter for each sex, plus (weights = heterogeneous variance along the time, varPower= power variance function is defined as s2(v) = |v|^(2*t))
+
+```{r}
+parf=c()
+for (i in 1:length(summary(model01)$ coefficients$fixed))      {
+par1=summary(model01)$ coefficients$fixed[[i]]
+parf=rbind(parf,par1)
+ } #starting values based on the model01 output, each class has its own start value
+
+model02=nlme(MY~a*(DIM**b)*exp(-k*DIM),fixed=list(a+b+k~CG-1),random=pdDiag(a~1),
+             control=nlmeControl(maxIter=500),
+             data=data_milkg,start=parf,na.action=na.omit,weights= varPower())       
+
+intervals(model02)
+######################
+
+(teta[3]=attributes(logLik(model02))$df)
+(AIcc[3]=-2*model02$logLik+2*teta[3]+(2*teta[3]*(teta[3]+1))/(nrow(data_milkg)-teta[3]-1))
+```
+
+#####  WOOD model with class of fixed effect, in other words, we will fit a parameter for each sex, plus (corr = modeling animal repeated measures, CAR1 = continous autoregressive)
+```{r}
+parf=c()
+for (i in 1:length(summary(model01)$ coefficients$fixed))      {
+par1=summary(model01)$ coefficients$fixed[[i]]
+parf=rbind(parf,par1)
+ } #starting values based on the model01 output, each class has its own start value
+
+model03=nlme(MY~a*(DIM**b)*exp(-k*DIM),fixed=list(a+b+k~CG-1),random=pdDiag(a~1),
+             control=nlmeControl(maxIter=100),
+             data=data_milkg,start=parf,na.action=na.omit,corr=corCAR1())
+######################
+
+(teta[4]=attributes(logLik(model03))$df)
+(AIcc[4]=-2*model03$logLik+2*teta[4]+(2*teta[4]*(teta[4]+1))/(nrow(data_milkg)-teta[4]-1))
+```
+
+##### Full WOOD model with class of fixed effect, heterogeneous variance along the time, repeated measures
+```{r}
+parf=c()
+for (i in 1:length(summary(model03)$ coefficients$fixed))      {
+par1=summary(model03)$ coefficients$fixed[[i]]
+parf=rbind(parf,par1)
+ }
+
+model04=nlme(MY~a*(DIM**b)*exp(-k*DIM),fixed=list(a+b+k~CG-1),random=pdDiag(a+b+k~1),
+             control=nlmeControl(maxIter=100),
+             data=data_milkg,start=parf,na.action=na.omit,corr=corCAR1(),weights= varPower()) 
+######################
+
+(teta[5]=attributes(logLik(model04))$df)
+(AIcc[5]=-2*model04$logLik+2*teta[5]+(2*teta[5]*(teta[5]+1))/(nrow(data_milkg)-teta[5]-1))
+```
+
+##### multi-model selection framework (Burnham and Anderson, 2004)
+```{r}
+
+delta=c()
+for(i in 1: length(AIcc)){
+delta[i]=AIcc[i]-min(AIcc)
+}
+
+wpro=c()
+for(i in 1:length(AIcc)){
+wpro[i]=exp(-delta[i]/2)
+}
+sum(wpro[1:length(AIcc)])
+
+wprob=c()
+for(i in 1: length(AIcc)){
+wprob[i]=exp(-delta[i]/2)/sum(wpro[1:length(AIcc)])
+}
+
+
+ER=c()
+for(i in 1: length(AIcc)){
+ER[i]=max(wprob)/wprob[i]
+}
+
+(quadro.akaike=data.frame(teta,AICc=AIcc,delta,wprob,ER))
+```
+
+
+##### Extracting the confidence intervals of the parameters after choosing the best model
+```{r}
+intervals(model04)
+```
+
+##### Prediction MY and TMY
+```{r}
+MWoodhat=function(a,b,k,age){
+  y=(a*age^b)*exp(-k*age)
+  return(y)
+}
+
+#milk yeld with Wood, MYl = first day,MYu=last day
+MYWood=function(a,b,k,MYl,MYu){
+  int=c()
+  for(i in 1:length(a)){
+    integrand <- function(age) {a[i]*(age**b[i])*exp(-k[i]*age)}
+    int1 <- try(integrate(integrand, lower=MYl, upper=MYu), silent = TRUE)
+    if(inherits(int ,'try-error')){
+      warning(as.vector(int))
+      integrated <- NA_real_
+    } else {
+      integrated <- int1[1]
+    }
+    int=rbind(int,int1[1])
+  }
+
+  return(int)
+}
+```
+##### Total Milk Yield
+
+```{r}
+(TMYCG22=MYWood(a=as.numeric(intervals(model04)$fixed[2,2]),
+                 b=as.numeric(intervals(model04)$fixed[8,2]),
+                 k=as.numeric(intervals(model04)$fixed[14,2]),
+                 MYl=10,MYu=305))
+
+
+(TMYCG32=MYWood(a=as.numeric(intervals(model04)$fixed[5,2]),
+               b=as.numeric(intervals(model04)$fixed[11,2]),
+               k=as.numeric(intervals(model04)$fixed[17,2]),
+               MYl=10,MYu=305))
+
+TMYCG22[[1]]-TMYCG32[[1]]
+```
+
+##### creating interactive graphics with plotly
+```{r}
+
+age=seq(1,305,by=0.25)
+#predictions
+predc1=MWoodhat(a=as.numeric(intervals(model04)$fixed[2,2]),b=as.numeric(intervals(model04)$fixed[8,2]),k=as.numeric(intervals(model04)$fixed[14,2]),age=age)
+predc2=MWoodhat(a=as.numeric(intervals(model04)$fixed[5,2]),b=as.numeric(intervals(model04)$fixed[11,2]),k=as.numeric(intervals(model04)$fixed[17,2]),age=age)
+
+### Multiple Y Axes
+
+#ay <- list(
+#  tickfont = list(color = "black"),
+#  overlaying = "y",
+#  side = "right",
+#  title = "Daily Weight Gain(g)"
+#)
+fig <- plot_ly()
+fig <- fig %>% add_lines(x = age, y = predc1, name = "Milk Yield CG22")
+
+fig <- fig %>% add_lines(x = age, y = predc2, name = "Milk Yield CG32")
+
+
+fig <- fig %>% layout(
+  title = "WOOD Milk curve",
+  xaxis = list(title="DIM(days)"),
+  yaxis = list(title="MY (kg)")
 )
 fig
 ```
