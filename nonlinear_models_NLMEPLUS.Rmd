@@ -490,7 +490,7 @@ data_GWAS <- read.table("GWAS.txt", h = T,na.strings=".") %>%
   groupedData(w~age|ID,data=.) #Creating dataset indicating animal repeated measures by age
 
 M=read.table("SNP_237.txt", h = T)
-M=M[,1:10]
+M=M[,1:50]
 
 ```
 
@@ -499,7 +499,7 @@ M=M[,1:10]
 nfl=length(levels(data_GWAS$CG))
 stv=c(rep(57,nfl),rep(29,nfl),rep(0.04,nfl))
 
-modelZ=nlme(w~a/(1+b*exp(-k*age)), fixed=list(a+b+k ~CG-1 ),random=a~1,
+modelZ=nlme(w~a/(1+b*exp(-k*age)), fixed=list(a+b+k ~CG-1 ),random=a+k~1,
                start=stv
                ,data = data_GWAS)
 ```
@@ -514,31 +514,44 @@ parf=rbind(parf,par1)
                                                                     } 
 row.names(parf) <- names(summary(fitted_model)$ coefficients$fixed)
 return(parf)
-}#starting values based on the model01 output, each class has its own start value
+}
 
 extract_start(modelZ)
 
-mk=matrix(extract_start(modelZ),ncol=3)
+mk=as.data.frame(matrix(extract_start(modelZ),ncol=3))
+
+colnames(mk) <- c("a","b","k")
 
 marker_start <- c()
 for (i in 1:ncol(mk)) {
 marker_start[[i]] <- mk[,i]  
 }
+names(marker_start) <- c("a","b","k")
 
+k=c(marker_start$k,0)
 
+new_stv_k=c(marker_start$a,marker_start$b,k)
+
+a=c(marker_start$a,0)
+
+new_stv_a=c(a,marker_start$b,marker_start$k)
+
+new_stv_ak=c(a,marker_start$b,k)
 ```
 
 
 ##### GWAS comparing model zero with a model with SNP effect
 ```{r}
-fixM=c(a~ factor(CG)-1,b~factor(CG)-1,k ~ factor(CG)-1+M) # fixed effects with SNP
+fixM_k=c(a~ factor(CG)-1,b~factor(CG)-1,k ~ factor(CG)-1+M) # fixed effects with SNP
+fixM_a=c(a~ factor(CG)-1+M,b~factor(CG)-1,k ~ factor(CG)-1) # fixed effects with SNP
+fixM_ak=c(a~ factor(CG)-1+M,b~factor(CG)-1,k ~ factor(CG)-1+M) # fixed effects with SNP
 
 
 st2=c(rep(57,nfl),rep(29,nfl),rep(0.04,nfl),0)
 
-pM=GWASnlme(data=data_GWAS,M=M,fixedM=fixM ,startM=st2,
+pM=GWASnlme(data=data_GWAS,M=M,fixedM=fixM_k,startM=st2,
             model0=modelZ,fdrlevel=0.05,lambda=0.5,ncores=4,parallel = T)
 
-sigM=pM %>% filter(Significant==TRUE)
+(sigM=pM %>% filter(Significant==TRUE))
 ```
 
