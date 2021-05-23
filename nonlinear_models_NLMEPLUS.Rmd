@@ -1,0 +1,86 @@
+---
+title: "Non-Linear Mixed Models"
+author: "Brito's Lab"
+output: html_notebook
+highlight: tango
+---
+
+<hr>
+
+```{r echo = FALSE}
+knitr::opts_chunk$set(include = T, echo =T, message=F, warning=F)
+```
+
+#### Packages
+
+```{r}
+library(tidyverse)
+library(nlme)
+library(plotly)
+library(multidplyr)
+```
+
+##### Importing Dataset
+
+```{r}
+setwd("~/Insync/leonardogloria@uenf.br/Google Drive/MENTORIA_R/Monday_meeting")
+dadosg <- read.table("data_growth.txt", h = T,na.strings=".") %>% 
+  mutate(age=idade,w=peso,animf=factor(animal),class=factor(sexo)) %>% 
+  groupedData(w~age|animf,data=.) #Creating dataset indicating animal repeated measures by age
+
+```
+
+##### Logistic model, without fixed effect
+```{r}
+teta=c();   AIcc=c();
+
+
+Mst <- expand.grid(a = seq(10, 20, by = 1),
+                       b = seq(1, 8, by = 4),k = seq(0.01, 0.1, by = 0.05))
+
+
+lo=Logistic(response = "w",age = "age")
+go=Gompertz(response = "w",age = "age")
+
+model00=nlmePlus(model=go,fixed=list(a+b+k~1),random=pdDiag(a~1),
+             control=nlmeControl(maxIter=100),
+             data=dadosg,
+             Mstart=Mst,na.action=na.omit,
+             ncores = 4,parallel = F,nfl=1)       
+
+(teta[1]=model00$teta)
+(AIcc[1]=model00$AICc)
+```
+
+#####  Logistic model with class of fixed effect, in other words, we will fit a parameter for each sex
+```{r}
+model01=nlmePlus(model=lo,fixed=list(a+b+k~class-1),random=pdDiag(a~1),
+             control=nlmeControl(maxIter=100),
+             data=dadosg,
+             Mstart=Mst,na.action=na.omit,
+             ncores = 4,parallel = T,nfl=2)  
+  
+
+
+(teta[2]=model01$teta)
+(AIcc[2]=model01$AICc)
+```
+
+
+#####  Logistic model with class of fixed effect, in other words, we will fit a parameter for each sex, plus (weights = heterogeneous variance along the time, varPower= power variance function is defined as s2(v) = |v|^(2*t))
+
+```{r}
+Mst2 <- expand.grid(a = seq(10, 20, by = 1),a2= seq(10, 20, by = 1),
+                   b = seq(1, 8, by = 4),b2 = seq(1, 8, by = 4),
+                   k = seq(0.01, 0.1, by = 0.05),k2 = seq(0.01, 0.1, by = 0.05))
+
+model02=nlme(w~a/(1+b*(exp(-k*age))),fixed=list(a+b+k~class-1),
+             random=pdDiag(a+b+k~1),control=nlmeControl(maxIter=500),
+             data=dadosg,start=parf,na.action=na.omit,weights= varPower())       
+
+intervals(model02)
+######################
+
+(teta[3]=attributes(logLik(model02))$df)
+(AIcc[3]=-2*model02$logLik+2*teta[3]+(2*teta[3]*(teta[3]+1))/(nrow(dadosg)-teta[3]-1))
+```
