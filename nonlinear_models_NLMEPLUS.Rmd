@@ -54,6 +54,16 @@ model00=nlmePlus(model=go,fixed=list(a+b+k~1),random=pdDiag(a~1),
 
 #####  Logistic model with class of fixed effect, in other words, we will fit a parameter for each sex
 ```{r}
+Mst1.1=data.frame(rep(Mst,each=2))
+
+Mst2 <- expand.grid(a = seq(10, 20, by = 1),a2= seq(10, 20, by = 1),
+                   b = seq(1, 8, by = 4),b2 = seq(1, 8, by = 4),
+                   k = seq(0.01, 0.1, by = 0.05),k2 = seq(0.01, 0.1, by = 0.05))
+
+Mst2 <- expand.grid(a = seq(3500,4000, length.out = 3),a2= seq(1500, 2000, length.out = 3),
+                   b = seq(1, 8, length.out = 2),b2 = seq(1, 8, length.out = 2),
+                   k = seq(0.01, 0.1, length.out = 3),k2 = seq(0.01, 0.1, length.out = 3))
+
 model01=nlmePlus(model=lo,fixed=list(a+b+k~class-1),random=pdDiag(a~1),
              control=nlmeControl(maxIter=100),
              data=dadosg,
@@ -70,17 +80,399 @@ model01=nlmePlus(model=lo,fixed=list(a+b+k~class-1),random=pdDiag(a~1),
 #####  Logistic model with class of fixed effect, in other words, we will fit a parameter for each sex, plus (weights = heterogeneous variance along the time, varPower= power variance function is defined as s2(v) = |v|^(2*t))
 
 ```{r}
-Mst2 <- expand.grid(a = seq(10, 20, by = 1),a2= seq(10, 20, by = 1),
-                   b = seq(1, 8, by = 4),b2 = seq(1, 8, by = 4),
-                   k = seq(0.01, 0.1, by = 0.05),k2 = seq(0.01, 0.1, by = 0.05))
 
-model02=nlme(w~a/(1+b*(exp(-k*age))),fixed=list(a+b+k~class-1),
-             random=pdDiag(a+b+k~1),control=nlmeControl(maxIter=500),
-             data=dadosg,start=parf,na.action=na.omit,weights= varPower())       
+
+model02=nlmePlus(model=lo,fixed=list(a+b+k~class-1),random=pdDiag(a~1),
+             control=nlmeControl(maxIter=100),
+             data=dadosg,
+             Mstart=Mst,na.action=na.omit,
+             ncores = 4,parallel = T,nfl=2,weights= varPower()) 
 
 intervals(model02)
 ######################
 
-(teta[3]=attributes(logLik(model02))$df)
-(AIcc[3]=-2*model02$logLik+2*teta[3]+(2*teta[3]*(teta[3]+1))/(nrow(dadosg)-teta[3]-1))
+(teta[3]=model02$teta)
+(AIcc[3]=model02$AICc)
 ```
+
+#####  Logistic model with class of fixed effect, in other words, we will fit a parameter for each sex, plus (corr = modeling animal repeated measures, CAR1 = continous autoregressive)
+```{r}
+
+
+model03=nlmePlus(model=lo,fixed=list(a+b+k~class-1),random=pdDiag(a~1),
+             control=nlmeControl(maxIter=100),
+             data=dadosg,
+             Mstart=Mst2,na.action=na.omit,
+             ncores = 4,parallel = T,nfl=1,corr=corCAR1()) 
+
+  
+######################
+
+(teta[4]=model03$teta)
+(AIcc[4]=model03$AICc)
+```
+
+##### Full Logistic model with class of fixed effect, heterogeneous variance along the time, repeated measures
+```{r}
+
+
+model04=nlmePlus(model=lo,fixed=list(a+b+k~class-1),random=pdDiag(a~1),
+             control=nlmeControl(maxIter=100),
+             data=dadosg,
+             Mstart=Mst2,na.action=na.omit,
+             ncores = 4,parallel = T,nfl=1,corr=corCAR1(),weights= varPower()) 
+
+  
+######################
+
+(teta[5]=model04$teta)
+(AIcc[5]=model04$AICc)
+```
+
+
+##### Gompertz model, without fixed effect
+```{r}
+
+model05=nlmePlus(model=go,fixed=list(a+b+k~1),random=pdDiag(a~1),
+             control=nlmeControl(maxIter=100),
+             data=dadosg,
+             Mstart=Mst,na.action=na.omit,
+             ncores = 4,parallel = T,nfl=1)
+  
+       
+
+(teta[6]=model05$teta)
+(AIcc[6]=model05$AICc)
+```
+
+
+#####  Gompertz model with class of fixed effect, in other words, we will fit a parameter for each sex
+```{r}
+
+model06=nlmePlus(model=go,fixed=list(a+b+k~class-1),random=pdDiag(a~1),
+             control=nlmeControl(maxIter=100),
+             data=dadosg,
+             Mstart=Mst2,na.action=na.omit,
+             ncores = 4,parallel = T,nfl=1)  
+
+
+
+(teta[7]=model06$teta)
+(AIcc[7]=model06$AICc)
+```
+
+#####  Gompertz model with class of fixed effect, in other words, we will fit a parameter for each sex, plus (weights = heterogeneous variance along the time, varPower= power variance function is defined as s2(v) = |v|^(2*t))
+
+```{r}
+
+
+model07= nlmePlus(model=go,fixed=list(a+b+k~class-1),random=pdDiag(a~1),
+             control=nlmeControl(maxIter=100),
+             data=dadosg,
+             Mstart=Mst,na.action=na.omit,
+             ncores = 4,parallel = T,nfl=2,weights= varPower()) 
+
+      
+
+intervals(model07)
+######################
+
+(teta[8]=model07$teta)
+(AIcc[8]=model07$AICc)
+```
+
+#####  Gompertz model with class of fixed effect, in other words, we will fit a parameter for each sex, plus (corr = modeling animal repeated measures, CAR1 = continous autoregressive)
+```{r}
+
+
+model08=nlmePlus(model=go,fixed=list(a+b+k~class-1),random=pdDiag(a~1),
+             control=nlmeControl(maxIter=100),
+             data=dadosg,
+             Mstart=Mst,na.action=na.omit,
+             ncores = 4,parallel = T,nfl=2,corr=corCAR1())
+  
+  
+######################
+
+(teta[9]=model08$teta)
+(AIcc[9]=model08$AICc)
+```
+
+
+##### Full Gompertz model with class of fixed effect, heterogeneous variance along the time, repeated measures
+```{r}
+
+model09= nlmePlus(model=go,fixed=list(a+b+k~class-1),random=pdDiag(a~1),
+             control=nlmeControl(maxIter=100),
+             data=dadosg,
+             Mstart=Mst,na.action=na.omit,
+             ncores = 4,parallel = T,nfl=2,corr=corCAR1(),weights= varPower())
+
+  
+(teta[10]=model09$teta)
+(AIcc[10]=model09$AICc)
+```
+
+
+##### multi-model selection framework (Burnham and Anderson, 2004)
+```{r}
+AkaikeTable(AICc = AIcc)
+```
+
+##### Extracting the confidence intervals of the parameters after choosing the best model
+```{r}
+intervals(model09)
+```
+
+##### Prediction and Growth rate function
+```{r}
+Gompertzhat=function(a,b,k,age){
+  y=a*exp(-b*(exp(-k*age)))
+  return(y)
+}
+GRGompertz=function(a,b,k,age){
+  y=a * (exp(-b * (exp(-k * age))) * (b * (exp(-k * age) * k)))
+  return(y)
+}
+```
+
+
+##### creating interactive graphics with plotly
+```{r}
+setwd("~/Insync/leonardogloria@uenf.br/Google Drive/MENTORIA_R/Monday_meeting")
+param=read.table("parameters.txt",h=T)
+row.names(param)=c("Males","Females")
+
+time=seq(1,90,by=0.25)
+#predictions
+predc1=Gompertzhat(a=param[1,1],b=param[1,2],k=param[1,3],age =time)
+predc2=Gompertzhat(a=param[2,1],b=param[2,2],k=param[2,3],age =time)
+
+#growth rate
+grc1=GRGompertz(a=param[1,1],b=param[1,2],k=param[1,3],age =time)
+grc2=GRGompertz(a=param[2,1],b=param[2,2],k=param[2,3],age =time)
+
+#inflaction point (max efficiency)
+maxef1=data.frame(grc1)
+rownames(maxef1)=time
+
+maxefx1=as.numeric(rownames(maxef1)[which.max(maxef1$grc1)])
+maxefy1=maxef1$grc1[which.max(maxef1$grc1)]
+
+maxef2=data.frame(grc2)
+rownames(maxef2)=time
+
+maxefx2=as.numeric(rownames(maxef2)[which.max(maxef2$grc2)])
+maxefy2=maxef2$grc2[which.max(maxef2$grc2)]
+
+### Multiple Y Axes
+
+ay <- list(
+  tickfont = list(color = "black"),
+  overlaying = "y",
+  side = "right",
+  title = "Daily Weight Gain(g)"
+)
+fig <- plot_ly()
+fig <- fig %>% add_lines(x = time, y = predc1, name = "Weight Males")
+fig <- fig %>% add_lines(x = time, y = grc1, name = "Growth Rate Males", yaxis = "y2")
+fig <- fig %>% add_markers(x = maxefx1, y = maxefy1, name = "Max Growth Rate Males", yaxis = "y2")
+fig <- fig %>% add_segments(line=list(type="dash"),x = maxefx1,xend=maxefx1, y = 0,yend =maxefy1, yaxis = "y2",name = "Max Growth Rate Males")
+
+fig <- fig %>% add_lines(x = time, y = predc2, name = "Weight Females")
+fig <- fig %>% add_lines(x = time, y = grc2, name = "Growth Rate Females", yaxis = "y2")
+fig <- fig %>% add_markers(x = maxefx2, y = maxefy2, name = "Max Growth Rate Females", yaxis = "y2")
+fig <- fig %>% add_segments(color = I("gray"),x = maxefx2,xend=maxefx2, y = 0,yend =maxefy2, yaxis = "y2",name = "Max Growth Rate Females")
+
+fig <- fig %>% layout(
+  title = "Growth Curve with Growth rate", yaxis2 = ay,
+  xaxis = list(title="Age(days)"),
+  yaxis = list(title="Weight(g)")
+)
+fig
+```
+
+## MILK CURVE
+
+##### Importing Milking Dataset
+
+## Importing dataset from txt
+
+```{r}
+setwd("~/Insync/leonardogloria@uenf.br/Google Drive/MENTORIA_R/Monday_meeting")
+data_milkg <- read.table("data_milk.txt", h = T) %>% 
+  mutate(animal=factor(animal),CG=factor(CG)) %>% 
+  groupedData(MY~DIM|animal,data=.) #Creating dataset indicating animal repeated measures by days in milk
+```
+
+##### WOOD model, without fixed effect
+```{r}
+teta=c();   AIcc=c();
+
+
+Mst <- expand.grid(a = seq(10, 20, by = 5),
+                       b = seq(.1, .8, by = .4),k = seq(0.001, 0.005, by = 0.002))
+
+
+wo=MWood(response = "MY",age = "DIM")
+
+
+model00=nlmePlus(model=wo,fixed=list(a+b+k~1),random=pdDiag(a~1),
+             control=nlmeControl(maxIter=100),
+             data=data_milkg,
+             Mstart=Mst,na.action=na.omit,
+             ncores = 4,parallel = T,nfl=1)  
+     
+
+(teta[1]=model00$teta)
+(AIcc[1]=model00$AICc)
+```
+
+#####  WOOD model with class of fixed effect, in other words, we will fit a parameter for each sex
+```{r}
+
+model01=nlmePlus(model=wo,fixed=list(a+b+k~CG-1),random=pdDiag(a~1),
+             control=nlmeControl(maxIter=100),
+             data=data_milkg,
+             Mstart=Mst,na.action=na.omit,
+             ncores = 4,parallel = T,nfl=6)  
+
+
+(teta[2]=model01$teta)
+(AIcc[2]=model01$AICc)
+```
+
+#####  WOOD model with class of fixed effect, in other words, we will fit a parameter for each sex, plus (weights = heterogeneous variance along the time, varPower= power variance function is defined as s2(v) = |v|^(2*t))
+
+```{r}
+
+model02=nlmePlus(model=wo,fixed=list(a+b+k~CG-1),random=pdDiag(a~1),
+             control=nlmeControl(maxIter=100),
+             data=data_milkg,
+             Mstart=Mst,na.action=na.omit,
+             ncores = 4,parallel = T,nfl=6,weights= varPower())       
+
+
+(teta[3]=model02$teta)
+(AIcc[3]=model02$AICc)
+```
+
+#####  WOOD model with class of fixed effect, in other words, we will fit a parameter for each sex, plus (corr = modeling animal repeated measures, CAR1 = continous autoregressive)
+```{r}
+
+model03=nlmePlus(model=wo,fixed=list(a+b+k~CG-1),random=pdDiag(a~1),
+             control=nlmeControl(maxIter=100),
+             data=data_milkg,
+             Mstart=Mst,na.action=na.omit,
+             ncores = 4,parallel = T,nfl=6,corr=corCAR1()) 
+  
+(teta[4]=model03$teta)
+(AIcc[4]=model03$AICc)
+```
+
+##### Full WOOD model with class of fixed effect, heterogeneous variance along the time, repeated measures
+```{r}
+
+Mstf <- expand.grid(a1=7.570164682, a2=19.998644945, a3=14.201491690, a4=10.855612478,  a5=9.789636156, a6= 9.867716909,
+                    b1=0.119418535,  b2=0.105686585,  b3=0.271669465, b4= 0.270643895,b5=  0.304180238,b6=  0.338281323,
+                    k1=0.001574526, k2=0.002345976,  k3=0.004387525,  k4=0.003445981, k5= 0.003567043 , k6=0.004766424)
+                       
+
+model04=nlmePlus(model=wo,fixed=list(a+b+k~CG-1),random=pdDiag(a~1),
+             control=nlmeControl(maxIter=100),
+             data=data_milkg,
+             Mstart=Mstf,na.action=na.omit,
+             ncores = 4,parallel = F,nfl=1,corr=corCAR1(),weights= varPower())
+
+(teta[5]=model04$teta)
+(AIcc[5]=model04$AICc)
+```
+
+##### multi-model selection framework (Burnham and Anderson, 2004)
+```{r}
+AkaikeTable(AICc = AIcc)
+```
+
+##### Extracting the confidence intervals of the parameters after choosing the best model
+```{r}
+intervals(model04)
+```
+
+##### Prediction MY and TMY
+```{r}
+MWoodhat=function(a,b,k,age){
+  y=(a*age^b)*exp(-k*age)
+  return(y)
+}
+
+#milk yeld with Wood, MYl = first day,MYu=last day
+MYWood=function(a,b,k,MYl,MYu){
+  int=c()
+  for(i in 1:length(a)){
+    integrand <- function(age) {a[i]*(age**b[i])*exp(-k[i]*age)}
+    int1 <- try(integrate(integrand, lower=MYl, upper=MYu), silent = TRUE)
+    if(inherits(int ,'try-error')){
+      warning(as.vector(int))
+      integrated <- NA_real_
+    } else {
+      integrated <- int1[1]
+    }
+    int=rbind(int,int1[1])
+  }
+
+  return(int)
+}
+```
+##### Total Milk Yield
+
+```{r}
+(TMYCG22=MYWood(a=as.numeric(intervals(model04)$fixed[2,2]),
+                 b=as.numeric(intervals(model04)$fixed[8,2]),
+                 k=as.numeric(intervals(model04)$fixed[14,2]),
+                 MYl=10,MYu=305))
+
+
+(TMYCG32=MYWood(a=as.numeric(intervals(model04)$fixed[5,2]),
+               b=as.numeric(intervals(model04)$fixed[11,2]),
+               k=as.numeric(intervals(model04)$fixed[17,2]),
+               MYl=10,MYu=305))
+
+TMYCG22[[1]]-TMYCG32[[1]]
+```
+
+##### creating interactive graphics with plotly
+```{r}
+
+age=seq(1,305,by=0.25)
+#predictions
+predc1=MWoodhat(a=as.numeric(intervals(model04)$fixed[2,2]),b=as.numeric(intervals(model04)$fixed[8,2]),k=as.numeric(intervals(model04)$fixed[14,2]),age=age)
+predc2=MWoodhat(a=as.numeric(intervals(model04)$fixed[5,2]),b=as.numeric(intervals(model04)$fixed[11,2]),k=as.numeric(intervals(model04)$fixed[17,2]),age=age)
+
+### Multiple Y Axes
+
+#ay <- list(
+#  tickfont = list(color = "black"),
+#  overlaying = "y",
+#  side = "right",
+#  title = "Daily Weight Gain(g)"
+#)
+fig <- plot_ly()
+fig <- fig %>% add_lines(x = age, y = predc1, name = "Milk Yield CG22")
+
+fig <- fig %>% add_lines(x = age, y = predc2, name = "Milk Yield CG32")
+
+
+fig <- fig %>% layout(
+  title = "WOOD Milk curve",
+  xaxis = list(title="DIM(days)"),
+  yaxis = list(title="MY (kg)")
+)
+fig
+```
+
+## SINGLE-STEP NONLINEAR GWAS
+
+```{r}
+
+```
+

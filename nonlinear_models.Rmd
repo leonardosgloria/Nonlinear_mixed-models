@@ -111,7 +111,6 @@ model04=nlme(w~a/(1+b*(exp(-k*age))),fixed=list(a+b+k~class-1),
 
 ##### Gompertz model, without fixed effect
 ```{r}
-teta=c();   AIcc=c();
 
 model05=nlme(w~a*exp(-b*(exp(-k*age))),fixed=list(a+b+k~1),random=pdDiag(a~1),
              control=nlmeControl(maxIter=100),
